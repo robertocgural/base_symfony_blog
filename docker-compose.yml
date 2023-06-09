@@ -1,0 +1,110 @@
+version: '3.5'
+
+services:
+  docker-symfony-web:
+    container_name: docker-symfony-web
+    build:
+      context: ./docker/nginx
+      args:
+        UID: $U_ID
+    ports:
+      - 300:80
+    volumes:
+      - ./public:/appdata/www/public
+    networks:
+      - docker-symfony-network
+    depends_on:
+      - docker-symfony-be
+
+  docker-symfony-node:
+    container_name: docker-symfony-node
+    image: node:18.16.0
+    ports:
+      - 3000:3000
+    command: npm install, npm, start
+    networks:
+      - docker-symfony-network
+    depends_on:
+      - docker-symfony-be
+  
+  docker-symfony-be:
+    container_name: docker-symfony-be
+    build:
+      context: ./docker/php
+      args:
+        UID: $U_ID
+    environment:
+      PHP_IDE_CONFIG: serverName=Docker
+#      PHP_XDEBUG_ENABLED: 1
+#      XDEBUG_CONFIG: remote_host=172.17.0.1 remote_port=9005 # Linux users
+      XDEBUG_CLIENT_HOST: 172.17.0.1
+      XDEBUG_CLIENT_PORT: 9003
+#      XDEBUG_CONFIG: remote_host=host.docker.internal remote_port=9005 # MacOS users
+    volumes:
+      - ./:/appdata/www
+      - ./docker/php/xdebug-linux.ini:/usr/local/etc/php/conf.d/xdebug.ini # Linux users
+#    - ./docker/php/xdebug-macos.ini:/usr/local/etc/php/conf.d/xdebug.ini # MacOS users
+#      - ~/.ssh/id_rsa:/home/appuser/.ssh/id_rsa
+    networks:
+      - docker-symfony-network
+    depends_on:
+      - docker-symfony-db
+
+  docker-symfony-pma:
+    container_name: docker-symfony-pma
+#    image: adminer
+#    restart: always
+#    ports:
+#      - 8080:8080
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - 8080:80
+    environment:
+      - PMA_HOST=docker-symfony-db
+      - MYSQL_ROOT_PASSWORD=root
+#      - PMA_ARBITRARY=1
+    depends_on:
+      - docker-symfony-db
+    networks:
+      - docker-symfony-network
+
+  docker-symfony-db:
+    container_name: docker-symfony-db
+    image: mysql:8.0
+    ports:
+      - 40000:3306
+    environment:
+      MYSQL_DATABASE: database
+#      MYSQL_USER: user
+#      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
+      command: mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - docker-symfony-database-data:/var/lib/mysql
+    networks:
+      - docker-symfony-network
+
+###> doctrine/doctrine-bundle ###
+  database:
+    image: postgres:${POSTGRES_VERSION:-15}-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      # You should definitely change the password in production
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+    volumes:
+      - database_data:/var/lib/postgresql/data:rw
+      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
+###< doctrine/doctrine-bundle ###
+
+volumes:
+
+###> doctrine/doctrine-bundle ###
+  database_data:
+###< doctrine/doctrine-bundle ###
+  docker-symfony-database-data:
+
+networks:
+  docker-symfony-network:
+    external: true

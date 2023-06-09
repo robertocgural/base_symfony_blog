@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Últimos posts{% endblock %}
+
+{% block body %}
+
+    {% for post in posts %}
+        <h2>
+            <a href="#">
+                {{ post.title }}
+            </a>
+        </h2>
+        <p>
+        {{ post.content }}
+        </p>
+        <hr>
+    {% endfor %}
+
+{% endblock %}
